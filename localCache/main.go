@@ -5,6 +5,8 @@ import (
     "os/signal"
     "syscall"
     "time"
+
+    "github.com/paoqi1997/pqgb/codec"
 )
 
 func OnExit(us *UnixServerSocket) {
@@ -24,6 +26,14 @@ func OnExit(us *UnixServerSocket) {
 func main() {
     addr := "/tmp/local-cache.sock"
     us := NewUnixServerSocket(addr)
+
+    us.handlePacket = func(clientId uint32, packet *codec.Packet) {
+        packetType := packet.Type
+        packetDataLen := packet.DataLen
+        pakDataLen := len(packet.Data)
+        Printf("[main] packetType: %d packetDataLen: %d pakDataLen: %d", packetType, packetDataLen, pakDataLen)
+        us.Send(clientId, packet.Data)
+    }
 
     err := us.Start()
     if err != nil {

@@ -3,6 +3,8 @@ package main
 import (
     "io"
     "net"
+
+    "github.com/paoqi1997/pqgb/codec"
 )
 
 type ServerSocketClient struct {
@@ -10,15 +12,22 @@ type ServerSocketClient struct {
     conn     net.Conn
     clientId uint32
     sendCh   chan []byte
+    inPakHd  *codec.PacketHandler
+    outPakHd *codec.PacketHandler
 }
 
 func (sc *ServerSocketClient) Start() {
     sc.sendCh = make(chan []byte, 64)
+    sc.inPakHd = codec.NewPacketHandler()
+    sc.outPakHd = codec.NewPacketHandler()
+
     go sc.Run()
     go sc.SendLoop()
 }
 
 func (sc *ServerSocketClient) Close() {
+    sc.sendCh <- nil
+
     if err := sc.conn.Close(); err != nil {
         Printf("[ServerSocketClient][Close] err: %v", err)
     }
@@ -36,9 +45,9 @@ func (sc *ServerSocketClient) Run() {
         nBytes, err := sc.conn.Read(buffer)
         if err != nil {
             if err == io.EOF {
-                Printf("[ServerSocketClient][Run] client %d close the connection.")
+                Printf("[ServerSocketClient][Run] client %d close the connection.", sc.clientId)
             } else {
-                Printf("[ServerSocketClient][Run] client %d Read err: %v")
+                Printf("[ServerSocketClient][Run] client %d Read err: %v", sc.clientId, err)
             }
 
             done = true
@@ -46,15 +55,26 @@ func (sc *ServerSocketClient) Run() {
         }
 
         if nBytes > 0 {
-            sc.HandlePacket(buffer[:nBytes])
+            sc.HandleRead(buffer[:nBytes])
         }
     }
 
     sc.Close()
 }
 
-func (sc *ServerSocketClient) HandlePacket(buff []byte) {
+func (sc *ServerSocketClient) HandleRead(buff []byte) {
+    sc.inPakHd.Pack(buff)
 
+    packet := sc.inPakHd.ParsePacket()
+    if packet != nil {
+        sc.ss.HandlePacket(sc.clientId, packet)
+    }
+}
+
+func (sc *ServerSocketClient) Send(buff []byte) {
+    go func() {
+        sc.sendCh <- buff
+    }()
 }
 
 func (sc *ServerSocketClient) SendLoop() {
@@ -62,14 +82,26 @@ func (sc *ServerSocketClient) SendLoop() {
         if buff == nil {
             return
         } else {
-            _, err := sc.Send(buff)
-            if err != nil {
-                Printf("[ServerSocketClient][SendLoop] client %d Send err: %v")
-            }
+            sc.HandleWrite(buff)
         }
     }
 }
 
-func (sc *ServerSocketClient) Send(buff []byte) (int, error) {
-    return sc.conn.Write(buff)
+func (sc *ServerSocketClient) HandleWrite(buff []byte) {
+    dataLen := len(buff)
+
+    nBytes, err := sc.conn.Write(buff)
+    if err != nil {
+        Printf("[ServerSocketClient][HandleWrite] client %d Write err: %v", sc.clientId, err)
+    }
+
+    if nBytes < dataLen {
+        go func() {
+            sc.sendCh <- buff[nBytes:]
+        }()
+    }
+
+    remain := dataLen - nBytes
+
+    Printf("[ServerSocketClient][HandleWrite] client %d write %d bytes, remain %d bytes.", sc.clientId, nBytes, remain)
 }

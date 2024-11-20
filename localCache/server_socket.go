@@ -3,11 +3,15 @@ package main
 import (
     "net"
     "sync"
+
+    "github.com/paoqi1997/pqgb/codec"
 )
 
 type IServerSocket interface {
     AddClient(net.Conn)
     DelClient(*ServerSocketClient)
+    GetClientById(uint32) *ServerSocketClient
+    HandlePacket(uint32, *codec.Packet)
 }
 
 type UnixServerSocket struct {
@@ -17,6 +21,7 @@ type UnixServerSocket struct {
     clientCount   uint
     clientCounter uint32
     lockOfClients *sync.RWMutex
+    handlePacket  func(uint32, *codec.Packet)
 }
 
 func NewUnixServerSocket(address string) *UnixServerSocket {
@@ -27,6 +32,7 @@ func NewUnixServerSocket(address string) *UnixServerSocket {
         clientCount:   0,
         clientCounter: 0,
         lockOfClients: &sync.RWMutex{},
+        handlePacket:  func(uint32, *codec.Packet){},
     }
 }
 
@@ -91,4 +97,27 @@ func (us *UnixServerSocket) DelClient(client *ServerSocketClient) {
     defer us.lockOfClients.Unlock()
     delete(us.clients, client.clientId)
     us.clientCount--
+}
+
+func (us *UnixServerSocket) GetClientById(clientId uint32) *ServerSocketClient {
+    us.lockOfClients.RLock()
+    client, existed := us.clients[clientId]
+    us.lockOfClients.RUnlock()
+
+    if existed {
+        return client
+    }
+
+    return nil
+}
+
+func (us *UnixServerSocket) HandlePacket(clientId uint32, packet *codec.Packet) {
+    us.handlePacket(clientId, packet)
+}
+
+func (us *UnixServerSocket) Send(clientId uint32, buff []byte) {
+    client := us.GetClientById(clientId)
+    if client != nil {
+        client.Send(buff)
+    }
 }
