@@ -1,10 +1,11 @@
-package main
+package network
 
 import (
     "io"
     "net"
 
     "github.com/paoqi1997/pqgb/codec"
+    "github.com/paoqi1997/pqgb/util"
 )
 
 type ServerSocketClient struct {
@@ -29,7 +30,7 @@ func (sc *ServerSocketClient) Close() {
     sc.sendCh <- nil
 
     if err := sc.conn.Close(); err != nil {
-        Printf("[ServerSocketClient][Close] err: %v", err)
+        util.Printf("[ServerSocketClient][Close] err: %v", err)
     }
 
     if sc.ss != nil {
@@ -45,9 +46,9 @@ func (sc *ServerSocketClient) Run() {
         nBytes, err := sc.conn.Read(buffer)
         if err != nil {
             if err == io.EOF {
-                Printf("[ServerSocketClient][Run] client %d close the connection.", sc.clientId)
+                util.Printf("[ServerSocketClient][Run] client %d close the connection.", sc.clientId)
             } else {
-                Printf("[ServerSocketClient][Run] client %d Read err: %v", sc.clientId, err)
+                util.Printf("[ServerSocketClient][Run] client %d Read err: %v", sc.clientId, err)
             }
 
             done = true
@@ -92,7 +93,7 @@ func (sc *ServerSocketClient) HandleWrite(buff []byte) {
 
     nBytes, err := sc.conn.Write(buff)
     if err != nil {
-        Printf("[ServerSocketClient][HandleWrite] client %d Write err: %v", sc.clientId, err)
+        util.Printf("[ServerSocketClient][HandleWrite] client %d Write err: %v", sc.clientId, err)
     }
 
     if nBytes < dataLen {
@@ -103,5 +104,5 @@ func (sc *ServerSocketClient) HandleWrite(buff []byte) {
 
     remain := dataLen - nBytes
 
-    Printf("[ServerSocketClient][HandleWrite] client %d write %d bytes, remain %d bytes.", sc.clientId, nBytes, remain)
+    util.Printf("[ServerSocketClient][HandleWrite] client %d write %d bytes, remain %d bytes.", sc.clientId, nBytes, remain)
 }

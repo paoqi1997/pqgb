@@ -1,10 +1,11 @@
-package main
+package network
 
 import (
     "net"
     "sync"
 
     "github.com/paoqi1997/pqgb/codec"
+    "github.com/paoqi1997/pqgb/util"
 )
 
 type IServerSocket interface {
@@ -21,7 +22,7 @@ type UnixServerSocket struct {
     clientCount   uint
     clientCounter uint32
     lockOfClients *sync.RWMutex
-    handlePacket  func(uint32, *codec.Packet)
+    PacketHandler func(uint32, *codec.Packet)
 }
 
 func NewUnixServerSocket(address string) *UnixServerSocket {
@@ -32,7 +33,7 @@ func NewUnixServerSocket(address string) *UnixServerSocket {
         clientCount:   0,
         clientCounter: 0,
         lockOfClients: &sync.RWMutex{},
-        handlePacket:  func(uint32, *codec.Packet){},
+        PacketHandler: func(uint32, *codec.Packet){},
     }
 }
 
@@ -54,7 +55,7 @@ func (us *UnixServerSocket) Start() error {
 
 func (us *UnixServerSocket) Close() {
     if err := us.listener.Close(); err != nil {
-        Printf("[UnixServerSocket][Close] Close err: %v", err)
+        util.Printf("[UnixServerSocket][Close] Close err: %v", err)
     }
 }
 
@@ -62,7 +63,7 @@ func (us *UnixServerSocket) Run() bool {
     for {
         unixConn, err := us.listener.AcceptUnix()
         if err != nil {
-            Printf("[UnixServerSocket][Run] AcceptUnix err: %v", err)
+            util.Printf("[UnixServerSocket][Run] AcceptUnix err: %v", err)
             return false
         }
 
@@ -112,7 +113,7 @@ func (us *UnixServerSocket) GetClientById(clientId uint32) *ServerSocketClient {
 }
 
 func (us *UnixServerSocket) HandlePacket(clientId uint32, packet *codec.Packet) {
-    us.handlePacket(clientId, packet)
+    us.PacketHandler(clientId, packet)
 }
 
 func (us *UnixServerSocket) Send(clientId uint32, buff []byte) {

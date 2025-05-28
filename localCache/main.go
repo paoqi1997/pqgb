@@ -7,9 +7,10 @@ import (
     "time"
 
     "github.com/paoqi1997/pqgb/codec"
+    "github.com/paoqi1997/pqgb/network"
 )
 
-func OnExit(us *UnixServerSocket) {
+func OnExit(us *network.UnixServerSocket) {
     ch := make(chan os.Signal, 1)
 
     signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
@@ -25,9 +26,9 @@ func OnExit(us *UnixServerSocket) {
 
 func main() {
     addr := "/tmp/local-cache.sock"
-    us := NewUnixServerSocket(addr)
+    us := network.NewUnixServerSocket(addr)
 
-    us.handlePacket = func(clientId uint32, packet *codec.Packet) {
+    us.PacketHandler = func(clientId uint32, packet *codec.Packet) {
         packetType := packet.Type
         packetDataLen := packet.DataLen
         pakDataLen := len(packet.Data)
